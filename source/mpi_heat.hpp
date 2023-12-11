@@ -86,14 +86,14 @@ std::vector<double> solve_heat_mpi(
     const double k,
     const uint_fast64_t n_h,
     const uint_fast64_t n_t,
-    const double u_0
+    const std::vector<double>& u_0
 ) {
     const uint_fast64_t N = n_h + 1;
     const double h = L / n_h;
     const double tau = T / n_t;
     const double kt_h2 = k * tau / (h * h);
 
-    printf("tau = %f, kt_h2 = %f\n", tau, kt_h2);
+    // printf("tau = %f, kt_h2 = %f\n", tau, kt_h2);
 
     std::vector<double> res;
 
@@ -121,7 +121,10 @@ std::vector<double> solve_heat_mpi(
 
         // std::printf("rank %d, start %lu, end %lu, size %lu\n", rank, start, end, size);
 
-        std::vector<double> u(size, u_0);
+        std::vector<double> u(size);
+
+        MPI_Scatterv(u_0.data(), sizes.data(), intervals.data(), MPI_DOUBLE, u.data() + 1 - is_left, size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
         std::vector<double> u_next(size);
         if (is_left) {
             u[0] = 0.0;
@@ -140,7 +143,7 @@ std::vector<double> solve_heat_mpi(
         if (is_right)
             right_rank = MPI_PROC_NULL;
 
-        MPI_Request req;
+        MPI_Request req[4];
         for (uint_fast64_t i = 0; i < n_t; i++) {
             // exchange values with neighbors
             if constexpr (alg == simple) {
@@ -152,13 +155,17 @@ std::vector<double> solve_heat_mpi(
                 // printf("aaaa\n");
                 u_next[1] = u[1] + kt_h2 * (u[0] - 2 * u[1] + u[2]);
                 u_next[size - 2] = u[size - 2] + kt_h2 * (u[size - 3] - 2 * u[size - 2] + u[size - 1]);
-                MPI_Isend(&u_next[1], 1, MPI_DOUBLE, left_rank, rank, MPI_COMM_WORLD, &req);
-                MPI_Isend(&u_next[size - 2], 1, MPI_DOUBLE, right_rank, rank, MPI_COMM_WORLD, &req);
+                MPI_Isend(&u_next[1], 1, MPI_DOUBLE, left_rank, rank, MPI_COMM_WORLD, &req[0]);
+                MPI_Isend(&u_next[size - 2], 1, MPI_DOUBLE, right_rank, rank, MPI_COMM_WORLD, &req[1]);
+
+                MPI_Irecv(&u_next[0], 1, MPI_DOUBLE, left_rank, left_rank, MPI_COMM_WORLD, &req[2]);
+                MPI_Irecv(&u_next[size - 1], 1, MPI_DOUBLE, right_rank, right_rank, MPI_COMM_WORLD, &req[3]);
 
                 heat_step(&u[1], &u_next[1], kt_h2, size - 2);
 
-                MPI_Recv(&u_next[0], 1, MPI_DOUBLE, left_rank, left_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                MPI_Recv(&u_next[size - 1], 1, MPI_DOUBLE, right_rank, right_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Waitall(4, req, MPI_STATUSES_IGNORE);
+                // MPI_Recv(&u_next[0], 1, MPI_DOUBLE, left_rank, left_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                // MPI_Recv(&u_next[size - 1], 1, MPI_DOUBLE, right_rank, right_rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
             u.swap(u_next);
         }
