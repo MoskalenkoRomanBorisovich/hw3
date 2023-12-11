@@ -155,11 +155,11 @@ std::vector<double> solve_heat_mpi(
                 // printf("aaaa\n");
                 u_next[1] = u[1] + kt_h2 * (u[0] - 2 * u[1] + u[2]);
                 u_next[size - 2] = u[size - 2] + kt_h2 * (u[size - 3] - 2 * u[size - 2] + u[size - 1]);
-                MPI_Isend(&u_next[1], 1, MPI_DOUBLE, left_rank, rank, MPI_COMM_WORLD, &req[0]);
-                MPI_Isend(&u_next[size - 2], 1, MPI_DOUBLE, right_rank, rank, MPI_COMM_WORLD, &req[1]);
+                MPI_Isend(&u_next[1], 1, MPI_DOUBLE, left_rank, 0, MPI_COMM_WORLD, &req[0]);
+                MPI_Isend(&u_next[size - 2], 1, MPI_DOUBLE, right_rank, 0, MPI_COMM_WORLD, &req[1]);
 
-                MPI_Irecv(&u_next[0], 1, MPI_DOUBLE, left_rank, left_rank, MPI_COMM_WORLD, &req[2]);
-                MPI_Irecv(&u_next[size - 1], 1, MPI_DOUBLE, right_rank, right_rank, MPI_COMM_WORLD, &req[3]);
+                MPI_Irecv(&u_next[0], 1, MPI_DOUBLE, left_rank, 0, MPI_COMM_WORLD, &req[2]);
+                MPI_Irecv(&u_next[size - 1], 1, MPI_DOUBLE, right_rank, 0, MPI_COMM_WORLD, &req[3]);
 
                 heat_step(&u[1], &u_next[1], kt_h2, size - 2);
 
