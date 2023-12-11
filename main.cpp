@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     case 3:
         n_t = std::stoi(argv[2]);
     case 2:
-        n_h = std::stoi(argv[1]);
+        n_h = std::stoi(argv[1]) - 1;
 
     default:
         break;
@@ -62,15 +62,17 @@ int main(int argc, char** argv) {
 
 
     if (rank == 0) {
+        int world_size;
+        MPI_Comm_size(MPI_COMM_WORLD, &world_size);
         const std::vector<double>& exact_solution = exact_solution_vector(T, k, u_0, n_h);
 
         double simple_er = vector_err(exact_solution, res_simple);
 
         double async_er = vector_err(exact_solution, res_async);
 
-        printf(" %10s | %10s | %10s \n", "name", "time_sec", "max_err");
-        printf(" %10s | %10lf | %10lf \n", "simple", time_simple, simple_er);
-        printf(" %10s | %10lf | %10lf \n", "async", time_async, async_er);
+        printf(" %10s | %10s | %10s | %10s | %10s | %10s \n", "N_tasks", "N_points", "N_t", "name", "time_sec", "max_err");
+        printf(" %10i | %10lu | %10lu | %10s | %10lf | %10lf \n", world_size, n_h + 1, n_t, "simple", time_simple, simple_er);
+        printf(" %10i | %10lu | %10lu | %10s | %10lf | %10lf \n", world_size, n_h + 1, n_t, "async", time_async, async_er);
     }
     MPI_Finalize();
     return 0;
